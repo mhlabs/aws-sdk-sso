@@ -1,0 +1,31 @@
+{
+  "name": "@mhlabs/aws-sdk-sso",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mhlabs/aws-sdk-sso.git"
+  },
+  "keywords": [
+    "aws",
+    "sso"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mhlabs/aws-sdk-sso/issues"
+  },
+  "homepage": "https://github.com/mhlabs/aws-sdk-sso#readme",
+  "devDependencies": {
+    "@types/node": "^14.0.27"
+  },
+  "dependencies": {
+    "@aws-sdk/shared-ini-file-loader": "0.1.0-preview.1",
+    "open": "^7.1.0",
+    "sha1": "^1.1.1"
+  }
+}
