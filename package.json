@@ -1,7 +1,7 @@
 {
   "name": "@mhlabs/aws-sdk-sso",
   "version": "1.0.0",
-  "description": "",
+  "description": "Credentials provider for AWS Single Sign-On",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
