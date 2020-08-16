@@ -1,6 +1,6 @@
 {
   "name": "@mhlabs/aws-sdk-sso",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Credentials provider for AWS Single Sign-On",
   "main": "index.js",
   "scripts": {
