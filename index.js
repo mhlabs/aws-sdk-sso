@@ -1,148 +1,102 @@
-var AWS = require("aws-sdk");
-const sharedIni = require("@aws-sdk/shared-ini-file-loader");
-const open = require("open");
-const oidc = new AWS.SSOOIDC();
-const sso = new AWS.SSO();
-const sts = new AWS.STS();
+const AWS = require("aws-sdk");
+const os = require("os");
 const fs = require("fs");
 const path = require("path");
 const sha1 = require("sha1");
-const { setUncaughtExceptionCaptureCallback } = require("process");
-let authInProgress = false;
-const homeDir =
-  process.env.HOME || process.env.HOMEPATH || process.env.USERPROFILE;
-let options;
+const storage = require("node-persist");
+
+var iniLoader = AWS.util.iniLoader;
+
 AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
   constructor: function SingleSignOnCredentials(options) {
     AWS.Credentials.call(this);
-    this.options = options;
-    this.get(function () {});
+
+    options = options || {};
+
+    this.filename = options.filename;
+    this.profile =
+      options.profile || process.env.AWS_PROFILE || AWS.util.defaultProfile;
+    this.get(options.callback || AWS.util.fn.noop);
   },
 
-  async refresh(callback) {
-    const self = this;
-    if (!callback) callback = AWS.util.fn.callback;
+  /**
+   * @api private
+   */
+  load: function load(callback) {
+    var self = this;
+    try {
+      const filepath =
+        process.env.AWS_CONFIG_FILE ||
+        path.join(os.homedir(), ".aws", "config");
+      var profiles = AWS.util.getProfilesFromSharedConfig(iniLoader, filepath);
+      var profile = profiles[this.profile] || {};
 
-    if (!process || !process.env) {
-      callback(
-        AWS.util.error(
-          new Error("No process info or environment variables available"),
-          { code: "SingleSignOnCredentialsProviderFailure" }
-        )
+      if (Object.keys(profile).length === 0) {
+        throw AWS.util.error(
+          new Error("Profile " + this.profile + " not found"),
+          { code: "ProcessCredentialsProviderFailure" }
+        );
+      }
+      AWS.config.update({ region: profile.sso_region });
+      const sso = new AWS.SSO();
+
+      const fileName = `${sha1(profile.sso_start_url)}.json`;
+
+      const cachePath = path.join(
+        os.homedir(),
+        ".aws",
+        "sso",
+        "cache",
+        fileName
       );
-      return;
-    }
-    this.options = this.options || {};
-    const profile =
-      (this.options && this.options.profile) || process.env.AWS_PROFILE || "default";
+      let cacheObj = null;
+      if (fs.existsSync(cachePath)) {
+        const cachedFile = fs.readFileSync(cachePath);
+        cacheObj = JSON.parse(cachedFile.toString());
+      }
+      const request = {
+        accessToken: cacheObj.accessToken,
+        accountId: profile.sso_account_id,
+        roleName: profile.sso_role_name,
+      };
+      if (!request) {
+        console.log(`Cached credentials not found under ${cachePath}. Please make sure you log in with 'aws sso login' first`);
+      }
+      sso.getRoleCredentials(request, (err, c) => {
+        if (!c) {
+          console.log(err.message);
+          console.log("Please log in using 'aws sso login'");
 
-    const files = await sharedIni.loadSharedConfigFiles();
-    const config = files.configFile[profile];
-    AWS.config.update({ region: config.sso_region });
-    const fileName = `${sha1(
-      config.sso_start_url + (this.options.profile ? `|${this.options.profile}` : "")
-    )}.json`;
+        }
+        self.expired = false;
+        AWS.util.update(self, {
+          accessKeyId: c.roleCredentials.accessKeyId,
+          secretAccessKey: c.roleCredentials.secretAccessKey,
+          sessionToken: c.roleCredentials.sessionToken,
+          expireTime: new Date(c.roleCredentials.expiration),
+        });
+        this.coalesceRefresh(callback || AWS.util.fn.callback);
+        callback(null);
+      });
+    } catch (err) {
+      console.log(err);
+      callback(err);
+    }
+  },
 
-    const cachePath = path.join(homeDir, ".aws", "sso", "cache", fileName);
-    let cacheObj = null;
-    if (fs.existsSync(cachePath)) {
-      const cachedFile = fs.readFileSync(cachePath);
-      cacheObj = JSON.parse(cachedFile.toString());
-    }
-    if (
-      cacheObj &&
-      new Date().getTime() < Date.parse(cacheObj.expiresAt.replace("UTC", ""))
-    ) {
-      await getRoleCredentials(cacheObj, config, self, fileName);      
-    } else {
-      await ssoAuth(config, self, fileName);
-    }
-},
+  /**
+   * Loads the credentials from the credential process
+   *
+   * @callback callback function(err)
+   *   Called after the credential process has been executed. When this
+   *   callback is called with no error, it means that the credentials
+   *   information has been loaded into the object (as the `accessKeyId`,
+   *   `secretAccessKey`, and `sessionToken` properties).
+   *   @param err [Error] if an error occurred, this value will be filled
+   * @see get
+   */
+  refresh: function refresh(callback) {
+    iniLoader.clearCachedFiles();
+    this.coalesceRefresh(callback || AWS.util.fn.callback);
+  },
 });
-
-async function ssoAuth(config, self, fileName) {
-  console.log("The SSO session associated with this profile has expired or is otherwise invalid. To refresh this SSO session run aws sso login with the corresponding profile.");
-  process.exit(1);
-  return;
-
-  // work in progress:
-  if (!authInProgress) {
-    authInProgress = true;
-    const registration = await oidc
-      .registerClient({
-        clientName: this.options.clientName || "aws-sdk-js",
-        clientType: "public",
-      })
-      .promise();
-    const auth = await oidc
-      .startDeviceAuthorization({
-        clientId: registration.clientId,
-        clientSecret: registration.clientSecret,
-        startUrl: config.sso_start_url,
-      })
-      .promise();
-
-    await open(auth.verificationUriComplete);
-    console.log(`Waiting for token... Ctrl+C to cancel.`);
-    await new Promise((resolve) => {
-      intervalId = setInterval(async () => {
-        tokenResponse = await createToken(registration, auth, resolve)
-          .then(async (p) => {
-            // saveCache(p);
-            clearInterval(intervalId);
-            await getRoleCredentials(p, config, self, fileName);
-          })
-          .catch((err) => { });
-      }, auth.interval * 1000);
-    });
-  }
-}
-
-async function getRoleCredentials(token, config, self, fileName) {
-  const request = {
-    accessToken: token.accessToken,
-    accountId: config.sso_account_id,
-    roleName: config.sso_role_name,
-  };
-  const credentials = await sso.getRoleCredentials(request).promise();  
-  setCredentials(self, credentials.roleCredentials, config);
-//  setCache(token, config, credentials, fileName);
-}
-
-function setCache(token, config, credentials, fileName) {
-  try {
-  fs.writeFileSync(fileName, JSON.stringify({
-    startUrl: config.sso_start_url,
-    region: config.region,
-    accessToken: token.accessToken,
-    expiresAt: new Date(new Date().getTime() + parseInt(credentials.expiresIn)).toISOString()
-  }))
-  } catch(err) {
-    console.log(err);
-  }
-}
-
-function setCredentials(self, credentials, config) {
-  self.expired = false;
-
-  self.accessKeyId = credentials.accessKeyId;
-  self.secretAccessKey = credentials.secretAccessKey;
-  self.sessionToken = credentials.sessionToken;
-  self.expireTime = credentials.expiration;
-  AWS.config.update({ region: config.region });
-}
-
-async function createToken(reg, auth) {
-  try {
-    return await oidc
-      .createToken({
-        clientId: reg.clientId,
-        clientSecret: reg.clientSecret,
-        deviceCode: auth.deviceCode,
-        grantType: "urn:ietf:params:oauth:grant-type:device_code",
-      })
-      .promise();
-  } catch (err) {
-    console.log("Waiting...");
-  }
-}

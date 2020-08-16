@@ -12,3 +12,5 @@ AWS.config.credentialProvider.providers.push(
 );
 ``` 
 
+## Known issues
+Does not yet support browser redirect login. Please use 'aws sso login` first. This is in lieu of official support form AWS and shouldn't be used for cruical tasks.
