@@ -17,21 +17,26 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
       options.profile || process.env.AWS_PROFILE || AWS.util.defaultProfile;
   },
 
-  init: function(options) {
-    const filepath =
-      process.env.AWS_CONFIG_FILE || path.join(os.homedir(), ".aws", "config");
-    var profiles = AWS.util.getProfilesFromSharedConfig(iniLoader, filepath);
-    var profile = profiles[this.profile] || {};
+  init: function (options) {
+    try {
+      const filepath =
+        process.env.AWS_CONFIG_FILE ||
+        path.join(os.homedir(), ".aws", "config");
+      var profiles = AWS.util.getProfilesFromSharedConfig(iniLoader, filepath);
+      var profile = profiles[this.profile] || {};
 
-    if (Object.keys(profile).length === 0) {
-      throw AWS.util.error(
-        new Error("Profile " + this.profile + " not found"),
-        { code: "ProcessCredentialsProviderFailure" }
-      );
-    }
-    if (profile.sso_start_url) {
-      AWS.config.update({ credentials: new AWS.SingleSignOnCredentials() });
-      this.get((options || {}).callback || AWS.util.fn.noop);
+      if (Object.keys(profile).length === 0) {
+        throw AWS.util.error(
+          new Error("Profile " + this.profile + " not found"),
+          { code: "ProcessCredentialsProviderFailure" }
+        );
+      }
+      if (profile.sso_start_url) {
+        AWS.config.update({ credentials: new AWS.SingleSignOnCredentials() });
+        this.get((options || {}).callback || AWS.util.fn.noop);
+      }
+    } catch (err) {
+      console.log(err);
     }
   },
 
