@@ -81,8 +81,10 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
         roleName: profile.sso_role_name,
       };
       if (!request) {
-        console.log(
-          `Cached credentials not found under ${cachePath}. Please make sure you log in with 'aws sso login' first`
+        throw AWS.util.error(
+          new Error(
+            `Cached credentials not found under ${cachePath}. Please make sure you log in with 'aws sso login' first`
+          )
         );
       }
       sso.getRoleCredentials(request, (err, c) => {
