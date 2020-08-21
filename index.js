@@ -14,30 +14,7 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
 
     this.filename = options.filename;
     this.profile =
-      options.profile  || process.env.AWS_PROFILE || AWS.util.defaultProfile;
-    this.get((options || {}).callback || AWS.util.fn.noop);
-  },
-
-  init: function (options) {
-    try {
-      const filepath =
-        process.env.AWS_CONFIG_FILE ||
-        path.join(os.homedir(), ".aws", "config");
-      var profiles = AWS.util.getProfilesFromSharedConfig(iniLoader, filepath);
-      var profile = profiles["profile " + this.profile] || {};
-      if (Object.keys(profile).length === 0) {
-        throw AWS.util.error(
-          new Error("Profile " + this.profile + " not found"),
-          { code: "ProcessCredentialsProviderFailure" }
-        );
-      }
-      if (profile.sso_start_url) {
-        AWS.config.update({ credentials: new AWS.SingleSignOnCredentials() });
-        this.get((options || {}).callback || AWS.util.fn.noop);
-      }
-    } catch (err) {
-      console.log(err);
-    }
+      options.profile || process.env.AWS_PROFILE || AWS.util.defaultProfile;
   },
 
   /**
@@ -58,10 +35,6 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
           { code: "ProcessCredentialsProviderFailure" }
         );
       }
-      if (!profile.sso_start_url) {
-        callback(new Error("No start url"));
-        return;
-      }
       AWS.config.update({ region: profile.sso_region });
       const sso = new AWS.SSO();
 
@@ -79,20 +52,22 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
         const cachedFile = fs.readFileSync(cachePath);
         cacheObj = JSON.parse(cachedFile.toString());
       }
-      if (!cacheObj) {
-         throw new Error(`Cached credentials not found under ${cachePath}. Please make sure you log in with 'aws sso login' first`);
-      } else {
       const request = {
         accessToken: cacheObj.accessToken,
         accountId: profile.sso_account_id,
         roleName: profile.sso_role_name,
       };
+      if (!request) {
+        throw AWS.util.error(
+          new Error(
+            `Cached credentials not found under ${cachePath}. Please make sure you log in with 'aws sso login' first`
+          )
+        );
+      }
       sso.getRoleCredentials(request, (err, c) => {
         if (!c) {
           console.log(err.message);
           console.log("Please log in using 'aws sso login'");
-          callback(err);
-          return;
         }
         self.expired = false;
         AWS.util.update(self, {
@@ -102,10 +77,9 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
           expireTime: new Date(c.roleCredentials.expiration),
         });
         this.coalesceRefresh(callback || AWS.util.fn.callback);
-        // console.log(AWS.config.credentials);
         callback(null);
       });
-    }} catch (err) {
+    } catch (err) {
       console.log(err);
       callback(err);
     }
