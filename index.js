@@ -13,7 +13,7 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
     options = options || {};
 
     this.filename = options.filename;
-    this.profile =
+    process.env.AWS_PROFILE =
       options.profile || process.env.AWS_PROFILE || AWS.util.defaultProfile;
   },
 
@@ -22,16 +22,17 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
    */
   load: function load(callback) {
     var self = this;
+    const profileName = process.env.AWS_PROFILE;
     try {
       const filepath =
         process.env.AWS_CONFIG_FILE ||
         path.join(os.homedir(), ".aws", "config");
       var profiles = AWS.util.getProfilesFromSharedConfig(iniLoader, filepath);
-      var profile = profiles[this.profile === "default" ? "default" : "profile " + this.profile] || {};
+      var profile = profiles[profileName === "default" ? "default" : "profile " + profileName] || {};
 
       if (Object.keys(profile).length === 0) {
         throw AWS.util.error(
-          new Error("Profile " + this.profile + " not found"),
+          new Error("Profile " + profileName + " not found"),
           { code: "ProcessCredentialsProviderFailure" }
         );
       }
