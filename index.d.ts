@@ -1,5 +1,4 @@
 import * as AWS from "aws-sdk";
-import { CredentialsOptions } from "aws-sdk/lib/credentials";
 import { IniLoader, ParsedIniData } from "@aws-sdk/shared-ini-file-loader";
 
 export module "aws-sdk" {
@@ -22,7 +21,7 @@ export module "aws-sdk" {
   };
 
   export class Credentials extends AWS.Credentials {
-    protected coalesceRefresh(callback: (err) => void, sync): void;
+    protected coalesceRefresh(callback: (err) => void, sync?: boolean): void;
   }
 
   export interface SsoProfile {
@@ -33,8 +32,13 @@ export module "aws-sdk" {
     sso_account_id: string;
   }
 
+  export interface SsoCredentialsOptions {
+    profile?: string;
+    filename?: string;
+  }
+
   export class SingleSignOnCredentials extends Credentials {
-    constructor(options?: CredentialsOptions);
+    constructor(options?: SsoCredentialsOptions);
     expired: boolean;
     load(callback: (err) => void): void;
 
