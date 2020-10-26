@@ -28,7 +28,7 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
         process.env.AWS_CONFIG_FILE ||
         path.join(os.homedir(), ".aws", "config");
       var profiles = AWS.util.getProfilesFromSharedConfig(iniLoader, filepath);
-      var profile = profiles[profileName] || {};      
+      var profile = profiles[profileName] || {};
 
       if (Object.keys(profile).length === 0) {
         throw AWS.util.error(
