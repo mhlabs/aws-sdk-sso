@@ -31,10 +31,8 @@
   },
   "dependencies": {
     "@aws-sdk/shared-ini-file-loader": "0.1.0-preview.1",
-    "esm": "^3.2.25",
     "open": "^7.1.0",
-    "sha1": "^1.1.1",
-    "ts-node": "^9.0.0"
+    "sha1": "^1.1.1"
   },
   "publishConfig": {
     "access": "public"
