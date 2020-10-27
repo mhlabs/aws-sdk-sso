@@ -2,9 +2,9 @@ const AWS = require("aws-sdk");
 const os = require("os");
 const fs = require("fs");
 const path = require("path");
-const sha1 = require("sha1");
+const { createHash } = require("crypto");
 
-var iniLoader = AWS.util.iniLoader;
+const iniLoader = AWS.util.iniLoader;
 
 AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
   constructor: function SingleSignOnCredentials(options) {
@@ -12,8 +12,11 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
 
     options = options || {};
 
-    this.filename = options.filename;
-    process.env.AWS_PROFILE =
+    this.filename =
+      options.filename ||
+      process.env.AWS_CONFIG_FILE ||
+      path.join(os.homedir(), ".aws", "config");
+    this.profile =
       options.profile || process.env.AWS_PROFILE || AWS.util.defaultProfile;
   },
 
@@ -21,27 +24,27 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
    * @api private
    */
   load: function load(callback) {
-    var self = this;
-    const profileName = process.env.AWS_PROFILE;
+    const self = this;
+    const profileName = this.profile;
     try {
-      const filepath =
-        process.env.AWS_CONFIG_FILE ||
-        path.join(os.homedir(), ".aws", "config");
-      var profiles = AWS.util.getProfilesFromSharedConfig(iniLoader, filepath);
-      var profile = profiles[profileName] || {};
+      const profiles = AWS.util.getProfilesFromSharedConfig(
+        iniLoader,
+        this.filename
+      );
+      const profile = profiles[profileName] || {};
 
       if (Object.keys(profile).length === 0) {
-        throw AWS.util.error(
-          new Error("Profile " + profileName + " not found"),
-          { code: "ProcessCredentialsProviderFailure" }
-        );
+        throw AWS.util.error(new Error(`Profile ${profileName} not found`), {
+          code: "SingleSignOnCredentialsProviderFailure",
+        });
       }
-      AWS.config.update({ region: profile.sso_region });
-      const sso = new AWS.SSO();
+
       if (!profile.sso_start_url) {
         callback(new Error("No sso_start_url"));
         return;
       }
+
+      const sha1 = (data) => createHash("sha1").update(data).digest("hex");
 
       const fileName = `${sha1(profile.sso_start_url)}.json`;
 
@@ -61,7 +64,8 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
       if (!cacheObj) {
         throw AWS.util.error(
           new Error(
-            `Cached credentials not found under ${cachePath}. Please make sure you log in with 'aws sso login' first`
+            `Cached credentials not found under ${cachePath}. ` +
+              `Please make sure you log in with 'aws sso login' first`
           )
         );
       }
@@ -71,6 +75,7 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
         accountId: profile.sso_account_id,
         roleName: profile.sso_role_name,
       };
+      const sso = new AWS.SSO({ region: profile.sso_region });
       sso.getRoleCredentials(request, (err, c) => {
         if (!c) {
           console.log(err.message);
