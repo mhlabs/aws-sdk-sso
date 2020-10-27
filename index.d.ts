@@ -1,5 +1,8 @@
 import * as AWS from "aws-sdk";
 import { IniLoader, ParsedIniData } from "@aws-sdk/shared-ini-file-loader";
+import { Credentials } from "aws-sdk/lib/credentials";
+
+type provider = () => Credentials;
 
 export module "aws-sdk" {
   export * as util from "aws-sdk/lib/util";
