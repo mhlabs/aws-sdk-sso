@@ -78,21 +78,26 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
       const sso = new AWS.SSO({ region: profile.sso_region });
       sso.getRoleCredentials(request, (err, c) => {
         if (!c) {
-          console.log(err.message);
-          console.log("Please log in using 'aws sso login'");
+          fs.writeSync(
+            process.stderr.fd,
+            `Caught exception: ${err}\nException origin: ${origin}`
+          );
+          console.error(err.message);
+          console.error("Please log in using 'aws sso login'");
+        } else {
+          self.expired = false;
+          AWS.util.update(self, {
+            accessKeyId: c.roleCredentials.accessKeyId,
+            secretAccessKey: c.roleCredentials.secretAccessKey,
+            sessionToken: c.roleCredentials.sessionToken,
+            expireTime: new Date(c.roleCredentials.expiration),
+          });
         }
-        self.expired = false;
-        AWS.util.update(self, {
-          accessKeyId: c.roleCredentials.accessKeyId,
-          secretAccessKey: c.roleCredentials.secretAccessKey,
-          sessionToken: c.roleCredentials.sessionToken,
-          expireTime: new Date(c.roleCredentials.expiration),
-        });
         this.coalesceRefresh(callback || AWS.util.fn.callback);
         callback(null);
       });
     } catch (err) {
-      console.log(err);
+      console.error(err);
       callback(err);
     }
   },

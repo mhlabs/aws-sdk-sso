@@ -36,8 +36,8 @@ export module "aws-sdk" {
   }
 
   export interface SsoCredentialsOptions {
-    profile?: string;
-    filename?: string;
+    profile: string;
+    filename: string;
   }
 
   export class SingleSignOnCredentials extends Credentials {
