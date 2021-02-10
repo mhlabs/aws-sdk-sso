@@ -6,15 +6,14 @@ const sha1 = require("sha1");
 
 var iniLoader = AWS.util.iniLoader;
 
-AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
+exports.SingleSignOnCredentials = AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
   constructor: function SingleSignOnCredentials(options) {
     AWS.Credentials.call(this);
 
     options = options || {};
 
     this.filename = options.filename;
-    process.env.AWS_PROFILE =
-      options.profile || process.env.AWS_PROFILE || AWS.util.defaultProfile;
+    this.profile = options.profile || process.env.AWS_PROFILE || AWS.util.defaultProfile;
   },
 
   /**
@@ -22,17 +21,16 @@ AWS.SingleSignOnCredentials = AWS.util.inherit(AWS.Credentials, {
    */
   load: function load(callback) {
     var self = this;
-    const profileName = process.env.AWS_PROFILE;
     try {
       const filepath =
         process.env.AWS_CONFIG_FILE ||
         path.join(os.homedir(), ".aws", "config");
       var profiles = AWS.util.getProfilesFromSharedConfig(iniLoader, filepath);
-      var profile = profiles[profileName] || {};      
+      var profile = profiles[this.profile] || {};      
 
       if (Object.keys(profile).length === 0) {
         throw AWS.util.error(
-          new Error("Profile " + profileName + " not found"),
+          new Error("Profile " + this.profile + " not found"),
           { code: "ProcessCredentialsProviderFailure" }
         );
       }
