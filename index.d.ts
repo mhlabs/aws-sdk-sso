@@ -1,7 +1,7 @@
 import { Credentials } from 'aws-sdk/lib/credentials';
 export class SingleSignOnCredentials extends Credentials {
     /**
-     * Creates a new ProcessCredentials object.
+     * Creates a new SingleSignOnCredentials object.
      */
     constructor(options?: SingleSignOnCredentialsOptions);
 }
