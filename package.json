@@ -29,7 +29,7 @@
     "@types/node": "^14.0.27"
   },
   "dependencies": {
-    "aws-sdk": "2.786.0",
+    "aws-sdk": "^2.786.0",
     "open": "^7.1.0",
     "sha1": "^1.1.1"
   },
