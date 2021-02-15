@@ -3,6 +3,11 @@
   "version": "0.0.12",
   "description": "Credentials provider for AWS Single Sign-On",
   "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -24,7 +29,7 @@
     "@types/node": "^14.0.27"
   },
   "dependencies": {
-    "@aws-sdk/shared-ini-file-loader": "0.1.0-preview.1",
+    "aws-sdk": "2.786.0",
     "open": "^7.1.0",
     "sha1": "^1.1.1"
   },
