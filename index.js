@@ -49,7 +49,6 @@ exports.SingleSignOnCredentials = AWS.SingleSignOnCredentials = AWS.util.inherit
       if (!profile.sso_start_url) {
         throw Error(`No sso_start_url set for profile ${this.profile}`);
       }
-      AWS.config.update({ region: profile.sso_region });
 
       const fileName = `${sha1(profile.sso_start_url)}.json`;
 
@@ -72,6 +71,13 @@ exports.SingleSignOnCredentials = AWS.SingleSignOnCredentials = AWS.util.inherit
         );
       }
 
+      const region = profile.sso_region;
+      const endpoint = `portal.sso.${region}.amazonaws.com`;
+      // The endpoint configuration is not automatically updated as per issue:
+      // https://github.com/aws/aws-sdk-js/issues/3558
+      self.service.config.update({ region, endpoint });
+      self.service.endpoint = new AWS.Endpoint(endpoint, self.service.config);
+
       const request = {
         accessToken: cacheObj.accessToken,
         accountId: profile.sso_account_id,
@@ -79,7 +85,7 @@ exports.SingleSignOnCredentials = AWS.SingleSignOnCredentials = AWS.util.inherit
       };
       self.service.getRoleCredentials(request, (err, c) => {
         if (err || !c) {
-          console.log(err)
+          console.log(err, { accountId: request.accountId, roleName: request.roleName })
           callback(AWS.util.error(
             Error(err ? err.message : 'Please log in using "aws sso login"'),
             { code: self.errorCode }
