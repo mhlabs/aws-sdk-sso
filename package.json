@@ -1,6 +1,6 @@
 {
   "name": "@mhlabs/aws-sdk-sso",
-  "version": "0.0.12",
+  "version": "0.0.14",
   "description": "Credentials provider for AWS Single Sign-On",
   "main": "index.js",
   "types": "index.d.ts",
@@ -29,7 +29,7 @@
     "@types/node": "^14.0.27"
   },
   "dependencies": {
-    "aws-sdk": "^2.786.0",
+    "@aws-sdk/shared-ini-file-loader": "^3.7.0",
     "open": "^7.1.0",
     "sha1": "^1.1.1"
   },
