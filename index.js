@@ -24,9 +24,12 @@ exports.SingleSignOnCredentials = AWS.SingleSignOnCredentials = AWS.util.inherit
     AWS.Credentials.call(this);
 
     options = options || {};
+    this.errorCode = 'SingleSignOnCredentialsProviderFailure';
+    this.expired = true;
 
     this.filename = options.filename;
     this.profile = options.profile || process.env.AWS_PROFILE || AWS.util.defaultProfile;
+    this.service = new AWS.SSO();
     this.get(options.callback || AWS.util.fn.noop);
   },
 
@@ -40,13 +43,12 @@ exports.SingleSignOnCredentials = AWS.SingleSignOnCredentials = AWS.util.inherit
       var profile = profiles[this.profile] || {};
 
       if (Object.keys(profile).length === 0) {
+        callback(AWS.util.error(Error(`Profile ${this.profile} not found`), { code: self.errorCode }), null);
         throw Error(`Profile ${this.profile} not found`);
       }
       if (!profile.sso_start_url) {
         throw Error(`No sso_start_url set for profile ${this.profile}`);
       }
-      AWS.config.update({ region: profile.sso_region });
-      const sso = new AWS.SSO();
 
       const fileName = `${sha1(profile.sso_start_url)}.json`;
 
@@ -69,17 +71,24 @@ exports.SingleSignOnCredentials = AWS.SingleSignOnCredentials = AWS.util.inherit
         );
       }
 
+      const region = profile.sso_region;
+      const endpoint = `portal.sso.${region}.amazonaws.com`;
+      // The endpoint configuration is not automatically updated as per issue:
+      // https://github.com/aws/aws-sdk-js/issues/3558
+      self.service.config.update({ region, endpoint });
+      self.service.endpoint = new AWS.Endpoint(endpoint, self.service.config);
+
       const request = {
         accessToken: cacheObj.accessToken,
         accountId: profile.sso_account_id,
         roleName: profile.sso_role_name,
       };
-      sso.getRoleCredentials(request, (err, c) => {
+      self.service.getRoleCredentials(request, (err, c) => {
         if (err || !c) {
-          console.log(err)
+          console.log(err, { accountId: request.accountId, roleName: request.roleName })
           callback(AWS.util.error(
-            new Error(err?.message || 'Please log in using "aws sso login"'),
-            { code: 'SingleSignOnCredentialsProviderFailure'}
+            Error(err ? err.message : 'Please log in using "aws sso login"'),
+            { code: self.errorCode }
           ), null);
           return;
         }
@@ -94,10 +103,7 @@ exports.SingleSignOnCredentials = AWS.SingleSignOnCredentials = AWS.util.inherit
       });
     } catch (err) {
       console.log(err);
-      callback(AWS.util.error(
-        new Error(err.message),
-        { code: 'SingleSignOnCredentialsProviderFailure'}
-      ), null);
+      callback(AWS.util.error(err, { code: self.errorCode }), null);
     }
   },
 
