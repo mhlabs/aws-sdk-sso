@@ -43,7 +43,11 @@ exports.SingleSignOnCredentials = AWS.SingleSignOnCredentials = AWS.util.inherit
         throw Error(`Profile ${this.profile} not found`);
       }
       if (!profile.sso_start_url) {
-        throw Error(`No sso_start_url set for profile ${this.profile}`);
+        callback(AWS.util.error(
+          new Error(`No sso_start_url set for profile ${this.profile}`),
+          { code: 'SingleSignOnCredentialsProviderFailure'}
+        ), null);
+        return;
       }
       AWS.config.update({ region: profile.sso_region });
       const sso = new AWS.SSO();
